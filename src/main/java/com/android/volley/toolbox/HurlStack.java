@@ -63,6 +63,7 @@ public class HurlStack implements HttpStack {
     }
 
     private final UrlRewriter mUrlRewriter;
+    // ssl: for https(http-ssl-tcp)
     private final SSLSocketFactory mSslSocketFactory;
 
     public HurlStack() {
@@ -92,7 +93,7 @@ public class HurlStack implements HttpStack {
         HashMap<String, String> map = new HashMap<String, String>();
         map.putAll(request.getHeaders());
         map.putAll(additionalHeaders);
-        if (mUrlRewriter != null) {
+        if (mUrlRewriter != null) { // UrlRewriter: filter
             String rewritten = mUrlRewriter.rewriteUrl(url);
             if (rewritten == null) {
                 throw new IOException("URL blocked by rewriter: " + url);
@@ -102,9 +103,12 @@ public class HurlStack implements HttpStack {
         URL parsedUrl = new URL(url);
         HttpURLConnection connection = openConnection(parsedUrl, request);
         for (String headerName : map.keySet()) {
+            // handle head params
             connection.addRequestProperty(headerName, map.get(headerName));
         }
+        // set method (and send body if has)
         setConnectionParametersForRequest(connection, request);
+        // !!!
         // Initialize HttpResponse with data from the HttpURLConnection.
         ProtocolVersion protocolVersion = new ProtocolVersion("HTTP", 1, 1);
         int responseCode = connection.getResponseCode();
@@ -115,12 +119,13 @@ public class HurlStack implements HttpStack {
         }
         StatusLine responseStatus = new BasicStatusLine(protocolVersion,
                 connection.getResponseCode(), connection.getResponseMessage());
+        // 构造统一的返回值，而httpClient直接就是HttpResponse了
         BasicHttpResponse response = new BasicHttpResponse(responseStatus);
         if (hasResponseBody(request.getMethod(), responseStatus.getStatusCode())) {
-            response.setEntity(entityFromConnection(connection));
+            response.setEntity(entityFromConnection(connection));// set response body
         }
         for (Entry<String, List<String>> header : connection.getHeaderFields().entrySet()) {
-            if (header.getKey() != null) {
+            if (header.getKey() != null) { //set response head
                 Header h = new BasicHeader(header.getKey(), header.getValue().get(0));
                 response.addHeader(h);
             }
@@ -129,6 +134,7 @@ public class HurlStack implements HttpStack {
     }
 
     /**
+     * just look
      * Checks if a response message contains a body.
      * @see <a href="https://tools.ietf.org/html/rfc7230#section-3.3">RFC 7230 section 3.3</a>
      * @param requestMethod request method
@@ -143,6 +149,7 @@ public class HurlStack implements HttpStack {
     }
 
     /**
+     * read body
      * Initializes an {@link HttpEntity} from the given {@link HttpURLConnection}.
      * @param connection
      * @return an HttpEntity populated with data from <code>connection</code>.
@@ -169,7 +176,7 @@ public class HurlStack implements HttpStack {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         // Workaround for the M release HttpURLConnection not observing the
-        // HttpURLConnection.setFollowRedirects() property.
+        // HttpURLConnection.setFollowRedirects() property. (M version)
         // https://code.google.com/p/android/issues/detail?id=194495
         connection.setInstanceFollowRedirects(HttpURLConnection.getFollowRedirects());
 
@@ -177,6 +184,7 @@ public class HurlStack implements HttpStack {
     }
 
     /**
+     * params set
      * Opens an {@link HttpURLConnection} with parameters.
      * @param url
      * @return an open connection
@@ -191,6 +199,7 @@ public class HurlStack implements HttpStack {
         connection.setUseCaches(false);
         connection.setDoInput(true);
 
+        // https
         // use caller-provided custom SslSocketFactory, if any, for HTTPS
         if ("https".equals(url.getProtocol()) && mSslSocketFactory != null) {
             ((HttpsURLConnection)connection).setSSLSocketFactory(mSslSocketFactory);
@@ -214,6 +223,7 @@ public class HurlStack implements HttpStack {
                 }
                 break;
             case Method.GET:
+                //
                 // Not necessary to set the request method because connection defaults to GET but
                 // being explicit here.
                 connection.setRequestMethod("GET");
@@ -247,6 +257,9 @@ public class HurlStack implements HttpStack {
         }
     }
 
+    /**
+     * for post, put, patch
+     */
     private static void addBodyIfExists(HttpURLConnection connection, Request<?> request)
             throws IOException, AuthFailureError {
         byte[] body = request.getBody();
@@ -255,6 +268,9 @@ public class HurlStack implements HttpStack {
         }
     }
 
+    /**
+     * DataOutputStream
+     */
     private static void addBody(HttpURLConnection connection, Request<?> request, byte[] body)
             throws IOException, AuthFailureError {
         // Prepare output. There is no need to set Content-Length explicitly,

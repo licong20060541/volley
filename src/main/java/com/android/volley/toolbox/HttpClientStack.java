@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * no https info, handle it yourself (sub class maybe)
  * An HttpStack that performs request over an {@link HttpClient}.
  */
 public class HttpClientStack implements HttpStack {
@@ -74,10 +75,11 @@ public class HttpClientStack implements HttpStack {
     @Override
     public HttpResponse performRequest(Request<?> request, Map<String, String> additionalHeaders)
             throws IOException, AuthFailureError {
-        HttpUriRequest httpRequest = createHttpRequest(request, additionalHeaders);
-        addHeaders(httpRequest, additionalHeaders);
+        HttpUriRequest httpRequest = createHttpRequest(request, additionalHeaders); //body ok
+        addHeaders(httpRequest, additionalHeaders); // headers
         addHeaders(httpRequest, request.getHeaders());
-        onPrepareRequest(httpRequest);
+        onPrepareRequest(httpRequest); // for sub class
+        // set time for httpClient
         HttpParams httpParams = httpRequest.getParams();
         int timeoutMs = request.getTimeoutMs();
         // TODO: Reevaluate this connection timeout based on more wide-scale
@@ -116,6 +118,7 @@ public class HttpClientStack implements HttpStack {
                 return new HttpDelete(request.getUrl());
             case Method.POST: {
                 HttpPost postRequest = new HttpPost(request.getUrl());
+                // "Content-Type"
                 postRequest.addHeader(HEADER_CONTENT_TYPE, request.getBodyContentType());
                 setEntityIfNonEmptyBody(postRequest, request);
                 return postRequest;
@@ -162,6 +165,7 @@ public class HttpClientStack implements HttpStack {
     }
 
     /**
+     * look
      * The HttpPatch class does not exist in the Android framework, so this has been defined here.
      */
     public static final class HttpPatch extends HttpEntityEnclosingRequestBase {
