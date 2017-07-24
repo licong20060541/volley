@@ -25,7 +25,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 /**
- * A synthetic request used for clearing the cache.
+ * A synthetic合成的 request used for clearing the cache.
  */
 public class ClearCacheRequest extends Request<Object> {
     private final Cache mCache;
@@ -49,7 +49,7 @@ public class ClearCacheRequest extends Request<Object> {
         mCache.clear();
         if (mCallback != null) {
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.postAtFrontOfQueue(mCallback);
+            handler.postAtFrontOfQueue(mCallback); // postAtFrontOfQueue
         }
         return true;
     }

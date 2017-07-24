@@ -165,7 +165,7 @@ public class HurlStack implements HttpStack {
         entity.setContent(inputStream);
         entity.setContentLength(connection.getContentLength());
         entity.setContentEncoding(connection.getContentEncoding());
-        entity.setContentType(connection.getContentType());
+        entity.setContentType(connection.getContentType()); // 响应时对应的编码--对比下
         return entity;
     }
 
@@ -277,6 +277,7 @@ public class HurlStack implements HttpStack {
         // since this is handled by HttpURLConnection using the size of the prepared
         // output stream.
         connection.setDoOutput(true);
+        // 请求时对应的编码--对比上
         connection.addRequestProperty(HEADER_CONTENT_TYPE, request.getBodyContentType());
         DataOutputStream out = new DataOutputStream(connection.getOutputStream());
         out.write(body);

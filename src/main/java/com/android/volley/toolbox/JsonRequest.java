@@ -35,7 +35,7 @@ public abstract class JsonRequest<T> extends Request<T> {
     /** Default charset for JSON request. */
     protected static final String PROTOCOL_CHARSET = "utf-8";
 
-    /** Content type for request. */
+    /** Content type for request. ！！！ */
     private static final String PROTOCOL_CONTENT_TYPE =
         String.format("application/json; charset=%s", PROTOCOL_CHARSET);
 
@@ -94,7 +94,7 @@ public abstract class JsonRequest<T> extends Request<T> {
 
     @Override
     public byte[] getBody() {
-        try {
+        try { // getBytes(charset)
             return mRequestBody == null ? null : mRequestBody.getBytes(PROTOCOL_CHARSET);
         } catch (UnsupportedEncodingException uee) {
             VolleyLog.wtf("Unsupported Encoding while trying to get the bytes of %s using %s",

@@ -48,7 +48,7 @@ public class ImageRequest extends Request<Bitmap> {
     private final int mMaxHeight;
     private final ScaleType mScaleType;
 
-    /** Decoding lock so that we don't decode more than one image at a time (to avoid OOM's) */
+    /** Decoding lock so that we don't decode more than one image at a time (to avoid OOM's) ！ */
     private static final Object sDecodeLock = new Object();
 
     /**
@@ -98,7 +98,7 @@ public class ImageRequest extends Request<Bitmap> {
 
     /**
      * Scales one side of a rectangle to fit aspect ratio.
-     *
+     * 前两个是view的宽高，后两个是bitmap实际的宽高
      * @param maxPrimary Maximum size of the primary dimension (i.e. width for
      *        max width), or zero to maintain aspect ratio with secondary
      *        dimension
@@ -130,7 +130,7 @@ public class ImageRequest extends Request<Bitmap> {
             return (int) (actualPrimary * ratio);
         }
 
-        if (maxSecondary == 0) {
+        if (maxSecondary == 0) { // 比如高度随意，则宽度就取view的宽了
             return maxPrimary;
         }
 
@@ -139,13 +139,13 @@ public class ImageRequest extends Request<Bitmap> {
 
         // If ScaleType.CENTER_CROP fill the whole rectangle, preserve aspect ratio.
         if (scaleType == ScaleType.CENTER_CROP) {
-            if ((resized * ratio) < maxSecondary) {
+            if ((resized * ratio) < maxSecondary) { // 无法铺满，则放大
                 resized = (int) (maxSecondary / ratio);
             }
             return resized;
         }
 
-        if ((resized * ratio) > maxSecondary) {
+        if ((resized * ratio) > maxSecondary) { // 铺满了，则缩小
             resized = (int) (maxSecondary / ratio);
         }
         return resized;
@@ -153,11 +153,12 @@ public class ImageRequest extends Request<Bitmap> {
 
     @Override
     protected Response<Bitmap> parseNetworkResponse(NetworkResponse response) {
-        // Serialize all decode on a global lock to reduce concurrent heap usage.
+        // Serialize all decode on a global lock to reduce concurrent heap usage. ！！！
         synchronized (sDecodeLock) {
             try {
+                // 解析图片尺寸:参考
                 return doParse(response);
-            } catch (OutOfMemoryError e) {
+            } catch (OutOfMemoryError e) { // !!! OutOfMemoryError
                 VolleyLog.e("Caught OOM for %d byte image, url=%s", response.data.length, getUrl());
                 return Response.error(new ParseError(e));
             }
@@ -171,8 +172,8 @@ public class ImageRequest extends Request<Bitmap> {
         byte[] data = response.data;
         BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
         Bitmap bitmap = null;
-        if (mMaxWidth == 0 && mMaxHeight == 0) {
-            decodeOptions.inPreferredConfig = mDecodeConfig;
+        if (mMaxWidth == 0 && mMaxHeight == 0) { // 为0则不压缩了
+            decodeOptions.inPreferredConfig = mDecodeConfig; // mean?
             bitmap = BitmapFactory.decodeByteArray(data, 0, data.length, decodeOptions);
         } else {
             // If we have to resize this image, first get the natural bounds.

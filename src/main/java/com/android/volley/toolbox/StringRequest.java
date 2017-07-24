@@ -64,10 +64,13 @@ public class StringRequest extends Request<String> {
     protected Response<String> parseNetworkResponse(NetworkResponse response) {
         String parsed;
         try {
+            // ！！获取编码类型HttpHeaderParser.parseCharset(response.headers)
+            // 数据在response.data
             parsed = new String(response.data, HttpHeaderParser.parseCharset(response.headers));
         } catch (UnsupportedEncodingException e) {
             parsed = new String(response.data);
         }
+        // HttpHeaderParser.parseCacheHeaders中也存储了response.data(缓存用)
         return Response.success(parsed, HttpHeaderParser.parseCacheHeaders(response));
     }
 }

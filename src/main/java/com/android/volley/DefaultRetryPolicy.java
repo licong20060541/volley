@@ -18,6 +18,7 @@ package com.android.volley;
 
 /**
  * Default retry policy for requests.
+ * 如何设置request.setRetryPolicy(new DefaultRetryPolicy(20 * 1000, 1, 1.0f));
  */
 public class DefaultRetryPolicy implements RetryPolicy {
     /** The current timeout in milliseconds. */

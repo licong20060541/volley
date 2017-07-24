@@ -32,14 +32,14 @@ import java.util.Map;
 /**
  * Base class for all network requests.
  *
- * @param <T> The type of parsed response this request expects.
+ * @param <T> The type of parsed response this request expects. (T)
  */
 public abstract class Request<T> implements Comparable<Request<T>> {
 
     /**
      * Default encoding for POST or PUT parameters. See {@link #getParamsEncoding()}.
      */
-    private static final String DEFAULT_PARAMS_ENCODING = "UTF-8";
+    private static final String DEFAULT_PARAMS_ENCODING = "UTF-8"; // look
 
     /**
      * Supported request methods.
@@ -55,6 +55,8 @@ public abstract class Request<T> implements Comparable<Request<T>> {
         int TRACE = 6;
         int PATCH = 7;
     }
+
+    // below params are great!
 
     /** An event log tracing the lifetime of this request; for debugging. */
     private final MarkerLog mEventLog = MarkerLog.ENABLED ? new MarkerLog() : null;
@@ -221,7 +223,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
             final long threadId = Thread.currentThread().getId();
             if (Looper.myLooper() != Looper.getMainLooper()) {
                 // If we finish marking off of the main thread, we need to
-                // actually do it on the main thread to ensure correct ordering.
+                // actually do it on the main thread to ensure correct ordering. (sync)
                 Handler mainThread = new Handler(Looper.getMainLooper());
                 mainThread.post(new Runnable() {
                     @Override
@@ -322,7 +324,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      * @throws AuthFailureError In the event of auth failure
      */
     public Map<String, String> getHeaders() throws AuthFailureError {
-        return Collections.emptyMap();
+        return Collections.emptyMap(); // emptyMap
     }
 
     /**
@@ -417,6 +419,8 @@ public abstract class Request<T> implements Comparable<Request<T>> {
     }
 
     /**
+     * 上传数据的时候使用--修改如JsonRequest, 如果上传文件那么使用multipart/form-data + boundary
+     * !!! "application/x-www-form-urlencoded; charset=UTF-8"
      * Returns the content type of the POST or PUT body.
      */
     public String getBodyContentType() {
@@ -425,7 +429,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
 
     /**
      * Returns the raw POST or PUT body to be sent.
-     *
+     * 注释中说明很清楚了，如果添加文件下载则应该如何修改，但是volley并不适合大文件传输
      * <p>By default, the body consists of the request parameters in
      * application/x-www-form-urlencoded format. When overriding this method, consider overriding
      * {@link #getBodyContentType()} as well to match the new body format.
@@ -447,12 +451,14 @@ public abstract class Request<T> implements Comparable<Request<T>> {
         StringBuilder encodedParams = new StringBuilder();
         try {
             for (Map.Entry<String, String> entry : params.entrySet()) {
+                // !!! URLEncoder.encode(entry.getKey(), paramsEncoding)
+                // 短信全是%问题可以用这个解决吧
                 encodedParams.append(URLEncoder.encode(entry.getKey(), paramsEncoding));
                 encodedParams.append('=');
                 encodedParams.append(URLEncoder.encode(entry.getValue(), paramsEncoding));
-                encodedParams.append('&');
+                encodedParams.append('&');//最后多了一个
             }
-            return encodedParams.toString().getBytes(paramsEncoding);
+            return encodedParams.toString().getBytes(paramsEncoding); // 返回值bytes
         } catch (UnsupportedEncodingException uee) {
             throw new RuntimeException("Encoding not supported: " + paramsEncoding, uee);
         }
@@ -545,7 +551,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
      * Subclasses must implement this to parse the raw network response
      * and return an appropriate response type. This method will be
      * called from a worker thread.  The response will not be delivered
-     * if you return null.
+     * if you return null. --- then give it to deliverResponse
      * @param response Response from the network
      * @return The parsed response, or null in the case of an error
      */
@@ -585,6 +591,7 @@ public abstract class Request<T> implements Comparable<Request<T>> {
     }
 
     /**
+     * 两种方式
      * Our comparator sorts from high to low priority, and secondarily by
      * sequence number to provide FIFO ordering.
      */
@@ -596,8 +603,8 @@ public abstract class Request<T> implements Comparable<Request<T>> {
         // High-priority requests are "lesser" so they are sorted to the front.
         // Equal priorities are sorted by sequence number to provide FIFO ordering.
         return left == right ?
-                this.mSequence - other.mSequence :
-                right.ordinal() - left.ordinal();
+                this.mSequence - other.mSequence : // 2
+                right.ordinal() - left.ordinal(); // 1
     }
 
     @Override
