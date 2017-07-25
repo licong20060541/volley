@@ -31,6 +31,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * 功能：
  * A request dispatch queue with a thread pool of dispatchers.
  *
  * Calling {@link #add(Request)} will enqueue the given Request for dispatch,
@@ -49,6 +50,8 @@ public class RequestQueue {
     private final AtomicInteger mSequenceGenerator = new AtomicInteger();
 
     /**
+     * 以下四个队列！！！
+     * 1 重复请求则放入此队列，临时区域，当finish的时候会来这里取对应的
      * Staging area for requests that already have a duplicate request in flight.
      *
      * <ul>
@@ -62,17 +65,18 @@ public class RequestQueue {
             new HashMap<>();
 
     /**
+     * 2 包括所有
      * The set of all requests currently being processed by this RequestQueue. A Request
      * will be in this set if it is waiting in any queue or currently being processed by
      * any dispatcher.
      */
     private final Set<Request<?>> mCurrentRequests = new HashSet<Request<?>>();
 
-    /** The cache triage queue. */
+    /** The cache triage queue. PriorityBlockingQueue 优先级的阻塞队列 -- 3 缓存*/
     private final PriorityBlockingQueue<Request<?>> mCacheQueue =
             new PriorityBlockingQueue<>();
 
-    /** The queue of requests that are actually going out to the network. */
+    /** The queue of requests that are actually going out to the network. 4 PriorityBlockingQueue */
     private final PriorityBlockingQueue<Request<?>> mNetworkQueue =
             new PriorityBlockingQueue<>();
 
@@ -99,11 +103,11 @@ public class RequestQueue {
 
     /**
      * Creates the worker pool. Processing will not begin until {@link #start()} is called.
-     *
-     * @param cache A Cache to use for persisting responses to disk
-     * @param network A Network interface for performing HTTP requests
-     * @param threadPoolSize Number of network dispatcher threads to create
-     * @param delivery A ResponseDelivery interface for posting responses and errors
+     * 参数都是接口，方便第三方进行定制，只要实现接口即可注入定制！
+     * @param cache A Cache to use for persisting responses to disk！
+     * @param network A Network interface for performing HTTP requests！
+     * @param threadPoolSize Number of network dispatcher threads to create！
+     * @param delivery A ResponseDelivery interface for posting responses and errors！
      */
     public RequestQueue(Cache cache, Network network, int threadPoolSize,
             ResponseDelivery delivery) {
@@ -140,12 +144,12 @@ public class RequestQueue {
      */
     public void start() {
         stop();  // Make sure any currently running dispatchers are stopped.
-        // Create the cache dispatcher and start it.
+        // Create the cache dispatcher and start it.-- a thread
         mCacheDispatcher = new CacheDispatcher(mCacheQueue, mNetworkQueue, mCache, mDelivery);
         mCacheDispatcher.start();
 
         // Create network dispatchers (and corresponding threads) up to the pool size.
-        for (int i = 0; i < mDispatchers.length; i++) {
+        for (int i = 0; i < mDispatchers.length; i++) { // more threads 共用一个队列！！！
             NetworkDispatcher networkDispatcher = new NetworkDispatcher(mNetworkQueue, mNetwork,
                     mCache, mDelivery);
             mDispatchers[i] = networkDispatcher;
@@ -156,7 +160,7 @@ public class RequestQueue {
     /**
      * Stops the cache and network dispatchers.
      */
-    public void stop() {
+    public void stop() { // call thread interrupt();
         if (mCacheDispatcher != null) {
             mCacheDispatcher.quit();
         }
@@ -266,6 +270,7 @@ public class RequestQueue {
     }
 
     /**
+     * run on ui thread
      * Called from {@link Request#finish(String)}, indicating that processing of the given request
      * has finished.
      *

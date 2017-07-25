@@ -21,6 +21,8 @@ import android.os.Process;
 import java.util.concurrent.BlockingQueue;
 
 /**
+ * good comment!
+ *
  * Provides a thread for performing cache triage on a queue of requests.
  *
  * Requests added to the specified cache queue are resolved from cache.
@@ -78,7 +80,7 @@ public class CacheDispatcher extends Thread {
     @Override
     public void run() {
         if (DEBUG) VolleyLog.v("start new dispatcher");
-        Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+        Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); //
 
         // Make a blocking call to initialize the cache.
         mCache.initialize();
@@ -86,11 +88,12 @@ public class CacheDispatcher extends Thread {
         while (true) {
             try {
                 // Get a request from the cache triage queue, blocking until
-                // at least one is available.
+                // at least one is available. blocking maybe!!!
                 final Request<?> request = mCacheQueue.take();
                 request.addMarker("cache-queue-take");
 
                 // If the request has been canceled, don't bother dispatching it.
+                // found canceled in cache thread
                 if (request.isCanceled()) {
                     request.finish("cache-discard-canceled");
                     continue;
@@ -108,13 +111,14 @@ public class CacheDispatcher extends Thread {
                 // If it is completely expired, just send it to the network.
                 if (entry.isExpired()) {
                     request.addMarker("cache-hit-expired");
-                    request.setCacheEntry(entry);
+                    request.setCacheEntry(entry); // 过期了也要保留到请求
                     mNetworkQueue.put(request);
                     continue;
                 }
 
                 // We have a cache hit; parse its data for delivery back to the request.
                 request.addMarker("cache-hit");
+                // net work also do this
                 Response<?> response = request.parseNetworkResponse(
                         new NetworkResponse(entry.data, entry.responseHeaders));
                 request.addMarker("cache-hit-parsed");
@@ -134,6 +138,7 @@ public class CacheDispatcher extends Thread {
 
                     // Post the intermediate response back to the user and have
                     // the delivery then forward the request along to the network.
+                    // 先响应完成，然后再进行网络请求刷新
                     mDelivery.postResponse(request, response, new Runnable() {
                         @Override
                         public void run() {

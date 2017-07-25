@@ -72,8 +72,8 @@ public class NetworkDispatcher extends Thread {
     }
 
     @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-    private void addTrafficStatsTag(Request<?> request) {
-        // Tag the request (if API >= 14)
+    private void addTrafficStatsTag(Request<?> request) { // 网络请求需要设置这个了...
+        // Tag the request (if API >= 14) 标记下请求
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             TrafficStats.setThreadStatsTag(request.getTrafficStatsTag());
         }
@@ -81,19 +81,19 @@ public class NetworkDispatcher extends Thread {
 
     @Override
     public void run() {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+        Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); // 习惯
         while (true) {
-            long startTimeMs = SystemClock.elapsedRealtime();
+            long startTimeMs = SystemClock.elapsedRealtime(); // 计算耗时
             Request<?> request;
             try {
                 // Take a request from the queue.
-                request = mQueue.take();
+                request = mQueue.take(); // 共用一个队列！！！同步与并发
             } catch (InterruptedException e) {
                 // We may have been interrupted because it was time to quit.
                 if (mQuit) {
                     return;
                 }
-                continue;
+                continue; // 继续工作
             }
 
             try {
@@ -101,7 +101,7 @@ public class NetworkDispatcher extends Thread {
 
                 // If the request was cancelled already, do not perform the
                 // network request.
-                if (request.isCanceled()) {
+                if (request.isCanceled()) { // 第一步判断是否取消
                     request.finish("network-discard-cancelled");
                     continue;
                 }
@@ -114,25 +114,27 @@ public class NetworkDispatcher extends Thread {
 
                 // If the server returned 304 AND we delivered a response already,
                 // we're done -- don't deliver a second identical response.
+                // 如果客户端发送了一个带条件的 GET 请求且该请求已被允许，而文档的内容（自上次访问以来
+                // 或者根据请求的条件）并没有改变，则服务器应当返回304状态码
                 if (networkResponse.notModified && request.hasHadResponseDelivered()) {
                     request.finish("not-modified");
                     continue;
                 }
 
-                // Parse the response here on the worker thread.
+                // Parse the response here on the worker thread. // cache also do this
                 Response<?> response = request.parseNetworkResponse(networkResponse);
                 request.addMarker("network-parse-complete");
 
                 // Write to cache if applicable.
-                // TODO: Only update cache metadata instead of entire record for 304s.
+                // TODO: Only update cache metadata instead of entire record for 304s.!!!
                 if (request.shouldCache() && response.cacheEntry != null) {
                     mCache.put(request.getCacheKey(), response.cacheEntry);
                     request.addMarker("network-cache-written");
                 }
 
                 // Post the response back.
-                request.markDelivered();
-                mDelivery.postResponse(request, response);
+                request.markDelivered(); // 重复标记了...
+                mDelivery.postResponse(request, response); // 这里标记了
             } catch (VolleyError volleyError) {
                 volleyError.setNetworkTimeMs(SystemClock.elapsedRealtime() - startTimeMs);
                 parseAndDeliverNetworkError(request, volleyError);

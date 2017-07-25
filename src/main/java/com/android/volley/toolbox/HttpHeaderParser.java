@@ -147,8 +147,8 @@ public class HttpHeaderParser {
         Cache.Entry entry = new Cache.Entry();
         entry.data = response.data;
         entry.etag = serverEtag;
-        entry.softTtl = softExpire;
-        entry.ttl = finalExpire;
+        entry.softTtl = softExpire; // 只有这个超时了，则设置response.intermediate = true;
+        entry.ttl = finalExpire; // 这个超时了则必须重新请求，不能使用缓存
         entry.serverDate = serverDate;
         entry.lastModified = lastModified;
         entry.responseHeaders = headers;

@@ -21,10 +21,12 @@ import android.os.Handler;
 import java.util.concurrent.Executor;
 
 /**
+ * 响应分发---ResponseDelivery
+ * new ExecutorDelivery(new Handler(Looper.getMainLooper())).
  * Delivers responses and errors.
  */
 public class ExecutorDelivery implements ResponseDelivery {
-    /** Used for posting responses, typically to the main thread. */
+    /** Used for posting responses, typically to the main thread.  ui thread*/
     private final Executor mResponsePoster;
 
     /**
@@ -33,6 +35,7 @@ public class ExecutorDelivery implements ResponseDelivery {
      */
     public ExecutorDelivery(final Handler handler) {
         // Make an Executor that just wraps the handler.
+        // see ! 只是提供一个接受Runnable的接口方法，实际是给Handler的
         mResponsePoster = new Executor() {
             @Override
             public void execute(Runnable command) {
@@ -57,14 +60,14 @@ public class ExecutorDelivery implements ResponseDelivery {
 
     @Override
     public void postResponse(Request<?> request, Response<?> response, Runnable runnable) {
-        request.markDelivered();
+        request.markDelivered(); // 回ui前标记 mResponseDelivered = true 会有同步问题吗？
         request.addMarker("post-response");
         mResponsePoster.execute(new ResponseDeliveryRunnable(request, response, runnable));
     }
 
     @Override
     public void postError(Request<?> request, VolleyError error) {
-        request.addMarker("post-error");
+        request.addMarker("post-error"); // 调用顺序记录List
         Response<?> response = Response.error(error);
         mResponsePoster.execute(new ResponseDeliveryRunnable(request, response, null));
     }
@@ -87,7 +90,7 @@ public class ExecutorDelivery implements ResponseDelivery {
 
         @SuppressWarnings("unchecked")
         @Override
-        public void run() {
+        public void run() { // ui thread. so cancel should also in ui for sync
             // If this request has canceled, finish it and don't deliver.
             if (mRequest.isCanceled()) {
                 mRequest.finish("canceled-at-delivery");
@@ -101,9 +104,15 @@ public class ExecutorDelivery implements ResponseDelivery {
                 mRequest.deliverError(mResponse.error);
             }
 
-            // If this is an intermediate response, add a marker, otherwise we're done
+            // If this is an intermediate 中间的 response, add a marker, otherwise we're done
             // and the request can be finished.
-            if (mResponse.intermediate) {
+            if (mResponse.intermediate) { // 只有这个特殊：使得请求依然存在着...
+                // CacheDispatcher 这个条件是当softExpire过期而finalExpire不过期的情况
+                // 那么就会响应两次喽...缓存已经一次，之后网络更新成功后再来一次?
+                // 有一种情况下不会，首先CacheDispatcher调用response时设置了markDelivered(上代码)
+                // 而NetworkDispatcher 下
+                //     if (networkResponse.notModified && request.hasHadResponseDelivered())
+                // 如果满足则直接request.finish("not-modified");
                 mRequest.addMarker("intermediate-response");
             } else {
                 mRequest.finish("done");
