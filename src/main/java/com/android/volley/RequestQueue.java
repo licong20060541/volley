@@ -231,7 +231,7 @@ public class RequestQueue {
     public <T> Request<T> add(Request<T> request) {
         // Tag the request as belonging to this queue and add it to the set of current requests.
         request.setRequestQueue(this);
-        synchronized (mCurrentRequests) {
+        synchronized (mCurrentRequests) { // sync !自定义类时尤其注意
             mCurrentRequests.add(request);
         }
 
@@ -246,7 +246,7 @@ public class RequestQueue {
         }
 
         // Insert request into stage if there's already a request with the same cache key in flight.
-        synchronized (mWaitingRequests) {
+        synchronized (mWaitingRequests) { // sync
             String cacheKey = request.getCacheKey();
             if (mWaitingRequests.containsKey(cacheKey)) {
                 // There is already a request in flight. Queue up.

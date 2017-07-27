@@ -50,6 +50,7 @@ public class Volley {
         } catch (NameNotFoundException e) {
         }
 
+        // choose net stack
         if (stack == null) {
             if (Build.VERSION.SDK_INT >= 9) {
                 stack = new HurlStack();

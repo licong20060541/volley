@@ -69,6 +69,11 @@ public class NetworkDispatcher extends Thread {
     public void quit() {
         mQuit = true;
         interrupt();
+        // Thread.interrupt()方法不会中断一个正在运行的线程。它的作用是，在线程受到阻塞时抛出一个中断信号，
+        // 这样线程就得以退出阻塞的状态。更确切的说，如果线程被Object.wait, Thread.join和Thread.sleep
+        // 三种方法之一阻塞，那么，它将接收到一个中断异常（InterruptedException），从而提早地终结被阻塞状态。
+        // interrupt方法并不是强制终止线程，它只能设置线程的interrupted状态，而在线程中一般使用一下方式：
+        // while (!Thread.currentThread().isInterrupted() && more work to do)
     }
 
     @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
@@ -82,12 +87,12 @@ public class NetworkDispatcher extends Thread {
     @Override
     public void run() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND); // 习惯
-        while (true) {
+        while (true) { // !Thread.currentThread().isInterrupted() will be better
             long startTimeMs = SystemClock.elapsedRealtime(); // 计算耗时
             Request<?> request;
             try {
                 // Take a request from the queue.
-                request = mQueue.take(); // 共用一个队列！！！同步与并发
+                request = mQueue.take(); // 共用一个队列！！！同步与并发, 移除功能
             } catch (InterruptedException e) {
                 // We may have been interrupted because it was time to quit.
                 if (mQuit) {
@@ -112,6 +117,7 @@ public class NetworkDispatcher extends Thread {
                 NetworkResponse networkResponse = mNetwork.performRequest(request);
                 request.addMarker("network-http-complete");
 
+                // 304 并且已经响应过了(cache有此功能)
                 // If the server returned 304 AND we delivered a response already,
                 // we're done -- don't deliver a second identical response.
                 // 如果客户端发送了一个带条件的 GET 请求且该请求已被允许，而文档的内容（自上次访问以来

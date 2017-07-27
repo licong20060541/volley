@@ -93,22 +93,29 @@ public class BasicNetwork implements Network {
             try {
                 // Gather headers.
                 Map<String, String> headers = new HashMap<String, String>();
-                addCacheHeaders(headers, request.getCacheEntry());
+                addCacheHeaders(headers, request.getCacheEntry()); // 缓存中有时会设置：下下
+                // 执行网络请求
                 httpResponse = mHttpStack.performRequest(request, headers);
-                StatusLine statusLine = httpResponse.getStatusLine();
-                int statusCode = statusLine.getStatusCode();
+                StatusLine statusLine = httpResponse.getStatusLine(); //
+                int statusCode = statusLine.getStatusCode(); //
 
                 responseHeaders = convertHeaders(httpResponse.getAllHeaders());
+                // 1 304
                 // Handle cache validation.
                 if (statusCode == HttpStatus.SC_NOT_MODIFIED) {
 
                     Entry entry = request.getCacheEntry();
+                    // 2 no cache，data就也为空了，这种情况是小概率吧？：上上。因为只有设置了
+                    // 请求对应的cache参数时才有可能返回304，则缓存是有的。但是如果缓存到了
+                    // 临界值确实会清空的，而这个cache刚刚查找过，理论不会那么快清掉的。
+                    // 如果确实为null了，那么后续便很有可能抛异常了，即解析错误了。
                     if (entry == null) {
                         return new NetworkResponse(HttpStatus.SC_NOT_MODIFIED, null,
                                 responseHeaders, true,
                                 SystemClock.elapsedRealtime() - requestStart);
                     }
 
+                    // 3 cache
                     // A HTTP 304 response does not have all header fields. We
                     // have to use the header fields from the cache entry plus
                     // the new ones from the response.
@@ -119,6 +126,8 @@ public class BasicNetwork implements Network {
                             SystemClock.elapsedRealtime() - requestStart);
                 }
 
+                // 4 not 304 !!!
+                // 5 204:请求执行成功，但是没有数据
                 // Some responses such as 204s do not have content.  We must check.
                 if (httpResponse.getEntity() != null) {
                   responseContents = entityToBytes(httpResponse.getEntity());
@@ -132,14 +141,18 @@ public class BasicNetwork implements Network {
                 long requestLifetime = SystemClock.elapsedRealtime() - requestStart;
                 logSlowRequests(requestLifetime, request, responseContents, statusLine);
 
+                // 6 1xx（临时响应）、2xx（成功）、3xx（已重定向）、4xx（请求错误）以及5xx（服务器错误)
                 if (statusCode < 200 || statusCode > 299) {
                     throw new IOException();
                 }
                 return new NetworkResponse(statusCode, responseContents, responseHeaders, false,
                         SystemClock.elapsedRealtime() - requestStart);
+                // four exception
             } catch (SocketTimeoutException e) {
+                // 1 retry for SocketTimeoutException
                 attemptRetryOnException("socket", request, new TimeoutError());
             } catch (ConnectTimeoutException e) {
+                // 2 retry for ConnectTimeoutException
                 attemptRetryOnException("connection", request, new TimeoutError());
             } catch (MalformedURLException e) {
                 throw new RuntimeException("Bad URL " + request.getUrl(), e);
@@ -155,15 +168,17 @@ public class BasicNetwork implements Network {
                 if (responseContents != null) {
                     networkResponse = new NetworkResponse(statusCode, responseContents,
                             responseHeaders, false, SystemClock.elapsedRealtime() - requestStart);
-                    if (statusCode == HttpStatus.SC_UNAUTHORIZED ||
-                            statusCode == HttpStatus.SC_FORBIDDEN) {
+                    if (statusCode == HttpStatus.SC_UNAUTHORIZED || // 401
+                            statusCode == HttpStatus.SC_FORBIDDEN) { // 403
+                        // 3 retry for auth
                         attemptRetryOnException("auth",
                                 request, new AuthFailureError(networkResponse));
                     } else if (statusCode >= 400 && statusCode <= 499) {
-                        // Don't retry other client errors.
+                        // Don't retry other client errors. //
                         throw new ClientError(networkResponse);
                     } else if (statusCode >= 500 && statusCode <= 599) {
                         if (request.shouldRetryServerErrors()) {
+                            // 4 server
                             attemptRetryOnException("server",
                                     request, new ServerError(networkResponse));
                         } else {
@@ -174,6 +189,7 @@ public class BasicNetwork implements Network {
                         throw new ServerError(networkResponse);
                     }
                 } else {
+                    // 5 retry for network
                     attemptRetryOnException("network", request, new NetworkError());
                 }
             }
@@ -194,6 +210,8 @@ public class BasicNetwork implements Network {
     }
 
     /**
+     * 只是做了retry的次数检测，何时进行retry呢？主逻辑中while (true) {}，只有成功或异常时才返回，
+     * 所以是立刻进行了retry操作
      * Attempts to prepare the request for a retry. If there are no more attempts remaining in the
      * request's retry policy, a timeout exception is thrown.
      * @param request The request to use.
@@ -219,13 +237,13 @@ public class BasicNetwork implements Network {
             return;
         }
 
-        if (entry.etag != null) {
+        if (entry.etag != null) { // etag
             headers.put("If-None-Match", entry.etag);
         }
 
         if (entry.lastModified > 0) {
             Date refTime = new Date(entry.lastModified);
-            headers.put("If-Modified-Since", DateUtils.formatDate(refTime));
+            headers.put("If-Modified-Since", DateUtils.formatDate(refTime)); // lastModified
         }
     }
 
@@ -236,6 +254,7 @@ public class BasicNetwork implements Network {
 
     /** Reads the contents of HttpEntity into a byte[]. */
     private byte[] entityToBytes(HttpEntity entity) throws IOException, ServerError {
+        // 带缓存的ByteArrayOutputStream
         PoolingByteArrayOutputStream bytes =
                 new PoolingByteArrayOutputStream(mPool, (int) entity.getContentLength());
         byte[] buffer = null;
@@ -268,6 +287,7 @@ public class BasicNetwork implements Network {
      * Converts Headers[] to Map&lt;String, String&gt;.
      */
     protected static Map<String, String> convertHeaders(Header[] headers) {
+        // String中的比较器
         Map<String, String> result = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
         for (int i = 0; i < headers.length; i++) {
             result.put(headers[i].getName(), headers[i].getValue());
