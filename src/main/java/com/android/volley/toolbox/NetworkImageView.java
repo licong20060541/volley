@@ -132,11 +132,11 @@ public class NetworkImageView extends ImageView {
         // if there was an old request in this view, check if it needs to be canceled.
         if (mImageContainer != null && mImageContainer.getRequestUrl() != null) {
             if (mImageContainer.getRequestUrl().equals(mUrl)) {
-                // if the request is from the same URL, return.
+                // if the request is from the same URL, return. // 请求缓存相同
                 return;
             } else {
                 // if there is a pre-existing request, cancel it if it's fetching a different URL.
-                mImageContainer.cancelRequest();
+                mImageContainer.cancelRequest();// 撤销
                 setDefaultImageOrNull();
             }
         }
@@ -148,6 +148,7 @@ public class NetworkImageView extends ImageView {
         // The pre-existing content of this view didn't match the current URL. Load the new image
         // from the network.
 
+        // 利用mImageLoader去加载，而mImageContainer是作为本次请求缓存，防止立刻下载新图片时可以停止这个
         // update the ImageContainer to be the new bitmap container.
         mImageContainer = mImageLoader.get(mUrl,
                 new ImageListener() {
@@ -160,6 +161,7 @@ public class NetworkImageView extends ImageView {
 
                     @Override
                     public void onResponse(final ImageContainer response, boolean isImmediate) {
+                        // !!!  why post
                         // If this was an immediate response that was delivered inside of a layout
                         // pass do not set the image immediately as it will trigger a requestLayout
                         // inside of a layout. Instead, defer setting the image by posting back to
@@ -199,7 +201,7 @@ public class NetworkImageView extends ImageView {
     }
 
     @Override
-    protected void onDetachedFromWindow() {
+    protected void onDetachedFromWindow() { // clear state
         if (mImageContainer != null) {
             // If the view was bound to an image request, cancel it and clear
             // out the image from the view.
@@ -212,7 +214,7 @@ public class NetworkImageView extends ImageView {
     }
 
     @Override
-    protected void drawableStateChanged() {
+    protected void drawableStateChanged() { // drawableStateChanged
         super.drawableStateChanged();
         invalidate();
     }

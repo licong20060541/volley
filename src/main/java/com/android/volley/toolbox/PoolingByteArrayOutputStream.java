@@ -20,6 +20,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 /**
+ *
+ * byte[] buf = null; 自己管理buf缓存！！！
+ *
  * A variation of {@link java.io.ByteArrayOutputStream} that uses a pool of byte[] buffers instead
  * of always allocating them fresh, saving on heap churn.
  */

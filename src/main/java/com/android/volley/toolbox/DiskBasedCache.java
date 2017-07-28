@@ -38,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
+ * 磁盘缓存： 方法都是synchronized，因为会有多个网络线程并发访问
  * Cache implementation that caches files directly onto the hard disk in the specified
  * directory. The default disk usage size is 5MB, but is configurable.
  */
@@ -105,7 +106,8 @@ public class DiskBasedCache implements Cache {
      */
     @Override
     public synchronized Entry get(String key) {
-        CacheHeader entry = mEntries.get(key);
+        CacheHeader entry = mEntries.get(key); // CacheHeader中保存请求头的信息，没有数据
+        // 而返回值entry中包括了所有信息
         // if the entry does not exist, return.
         if (entry == null) {
             return null;
@@ -117,7 +119,7 @@ public class DiskBasedCache implements Cache {
             cis = new CountingInputStream(new BufferedInputStream(new FileInputStream(file)));
             CacheHeader.readHeader(cis); // eat header
             byte[] data = streamToBytes(cis, (int) (file.length() - cis.bytesRead));
-            return entry.toCacheEntry(data);
+            return entry.toCacheEntry(data); // CacheHeader + data[] = Entry
         } catch (IOException e) {
             VolleyLog.d("%s: %s", file.getAbsolutePath(), e.toString());
             remove(key);
@@ -138,6 +140,7 @@ public class DiskBasedCache implements Cache {
     }
 
     /**
+     * 初始化所有磁盘缓存的头信息 CacheHeader entry = CacheHeader.readHeader(fis); 没有数据体
      * Initializes the DiskBasedCache by scanning for all files currently in the
      * specified root directory. Creates the root directory if necessary.
      */
@@ -258,6 +261,7 @@ public class DiskBasedCache implements Cache {
      * @param neededSpace The amount of bytes we are trying to fit into the cache.
      */
     private void pruneIfNeeded(int neededSpace) {
+        // 1 空间足够用
         if ((mTotalSize + neededSpace) < mMaxCacheSizeInBytes) {
             return;
         }
@@ -269,6 +273,7 @@ public class DiskBasedCache implements Cache {
         int prunedFiles = 0;
         long startTime = SystemClock.elapsedRealtime();
 
+        // 2 空间不足，LinkedHashMap -- 删除最近没有使用的
         Iterator<Map.Entry<String, CacheHeader>> iterator = mEntries.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, CacheHeader> entry = iterator.next();
@@ -321,6 +326,7 @@ public class DiskBasedCache implements Cache {
     }
 
     /**
+     * streamToBytes
      * Reads the contents of an InputStream into a byte[].
      * */
     private static byte[] streamToBytes(InputStream in, int length) throws IOException {
@@ -392,7 +398,7 @@ public class DiskBasedCache implements Cache {
         public static CacheHeader readHeader(InputStream is) throws IOException {
             CacheHeader entry = new CacheHeader();
             int magic = readInt(is);
-            if (magic != CACHE_MAGIC) {
+            if (magic != CACHE_MAGIC) { // 正常必须是CACHE_MAGIC，否则可能在删除...
                 // don't bother deleting, it'll get pruned eventually
                 throw new IOException();
             }
@@ -450,6 +456,9 @@ public class DiskBasedCache implements Cache {
     }
 
     private static class CountingInputStream extends FilterInputStream {
+
+        // 保存了bytesRead！！！
+
         private int bytesRead = 0;
 
         private CountingInputStream(InputStream in) {
@@ -475,9 +484,10 @@ public class DiskBasedCache implements Cache {
         }
     }
 
-    /*
+    /**
+     * 注释说java jdk写的烂
      * Homebrewed simple serialization system used for reading and writing cache
-     * headers on disk. Once upon a time, this used the standard Java
+     * headers on disk. Once upon a time 从前, this used the standard Java
      * Object{Input,Output}Stream, but the default implementation relies heavily
      * on reflection (even for standard types) and generates a ton of garbage.
      */
@@ -494,6 +504,7 @@ public class DiskBasedCache implements Cache {
         return b;
     }
 
+    // 虽然类型是int，但是操作的都是字节数据
     static void writeInt(OutputStream os, int n) throws IOException {
         os.write((n >> 0) & 0xff);
         os.write((n >> 8) & 0xff);
@@ -510,6 +521,8 @@ public class DiskBasedCache implements Cache {
         return n;
     }
 
+    // 1.>> 需考虑符号位
+    // 2.>>> 不考虑符号位，缺少的位数补0
     static void writeLong(OutputStream os, long n) throws IOException {
         os.write((byte)(n >>> 0));
         os.write((byte)(n >>> 8));
@@ -522,7 +535,7 @@ public class DiskBasedCache implements Cache {
     }
 
     static long readLong(InputStream is) throws IOException {
-        long n = 0;
+        long n = 0; // 此处L代表long吧
         n |= ((read(is) & 0xFFL) << 0);
         n |= ((read(is) & 0xFFL) << 8);
         n |= ((read(is) & 0xFFL) << 16);

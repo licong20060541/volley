@@ -87,6 +87,7 @@ public class AndroidAuthenticator implements Authenticator {
     @SuppressWarnings("deprecation")
     @Override
     public String getAuthToken() throws AuthFailureError {
+        // 1 mAccountManager.getAuthToken
         AccountManagerFuture<Bundle> future = mAccountManager.getAuthToken(mAccount,
                 mAuthTokenType, mNotifyAuthFailure, null, null);
         Bundle result;
@@ -112,6 +113,7 @@ public class AndroidAuthenticator implements Authenticator {
 
     @Override
     public void invalidateAuthToken(String authToken) {
+        // 2
         mAccountManager.invalidateAuthToken(mAccount.type, authToken);
     }
 }

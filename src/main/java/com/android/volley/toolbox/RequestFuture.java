@@ -97,6 +97,10 @@ public class RequestFuture<T> implements Future<T>, Response.Listener<T>,
         return doGet(TimeUnit.MILLISECONDS.convert(timeout, unit));
     }
 
+    /**
+     * get方法如何实现阻塞的呢？
+     * 老方法了wait和notify，且synchronized用在了方法上
+     */
     private synchronized T doGet(Long timeoutMs)
             throws InterruptedException, ExecutionException, TimeoutException {
         if (mException != null) {

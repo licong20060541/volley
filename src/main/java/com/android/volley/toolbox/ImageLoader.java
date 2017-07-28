@@ -50,12 +50,14 @@ public class ImageLoader {
     private final ImageCache mCache;
 
     /**
+     * 相同请求则执行一个，其余等待即可
      * HashMap of Cache keys -> BatchedImageRequest used to track in-flight requests so
      * that we can coalesce multiple requests to the same URL into a single network request.
      */
     private final HashMap<String, BatchedImageRequest> mInFlightRequests =
             new HashMap<String, BatchedImageRequest>();
 
+    // 请求已ok啦，正在响应中... 这两个map是2选一
     /** HashMap of the currently pending responses (waiting to be delivered). */
     private final HashMap<String, BatchedImageRequest> mBatchedResponses =
             new HashMap<String, BatchedImageRequest>();
@@ -137,7 +139,7 @@ public class ImageLoader {
          * @param isImmediate True if this was called during ImageLoader.get() variants.
          * This can be used to differentiate between a cached image loading and a network
          * image loading in order to, for example, run an animation to fade in network loaded
-         * images.
+         * images. 调用过程中返回则true，比如缓存有或设置默认图片
          */
         void onResponse(ImageContainer response, boolean isImmediate);
     }
@@ -212,12 +214,13 @@ public class ImageLoader {
 
         final String cacheKey = getCacheKey(requestUrl, maxWidth, maxHeight, scaleType);
 
+        // 1 cache
         // Try to look up the request in the cache of remote images.
         Bitmap cachedBitmap = mCache.getBitmap(cacheKey);
         if (cachedBitmap != null) {
             // Return the cached bitmap.
             ImageContainer container = new ImageContainer(cachedBitmap, requestUrl, null, null);
-            imageListener.onResponse(container, true);
+            imageListener.onResponse(container, true); // 同步返回则true
             return container;
         }
 
@@ -225,9 +228,11 @@ public class ImageLoader {
         ImageContainer imageContainer =
                 new ImageContainer(null, requestUrl, cacheKey, imageListener);
 
+        // 2 default image
         // Update the caller to let them know that they should use the default bitmap.
-        imageListener.onResponse(imageContainer, true);
+        imageListener.onResponse(imageContainer, true); // default image
 
+        // 3 already in network
         // Check to see if a request is already in-flight.
         BatchedImageRequest request = mInFlightRequests.get(cacheKey);
         if (request != null) {
@@ -236,6 +241,7 @@ public class ImageLoader {
             return imageContainer;
         }
 
+        // 4 do net request
         // The request is not already in flight. Send the new request to the network and
         // track it.
         Request<Bitmap> newRequest = makeImageRequest(requestUrl, maxWidth, maxHeight, scaleType,
@@ -454,11 +460,11 @@ public class ImageLoader {
      * @param request The BatchedImageRequest to be delivered.
      */
     private void batchResponse(String cacheKey, BatchedImageRequest request) {
-        mBatchedResponses.put(cacheKey, request);
+        mBatchedResponses.put(cacheKey, request); // 同步问题要考虑清楚，要么同一个线程，要么sync
         // If we don't already have a batch delivery runnable in flight, make a new one.
         // Note that this will be used to deliver responses to all callers in mBatchedResponses.
         if (mRunnable == null) {
-            mRunnable = new Runnable() {
+            mRunnable = new Runnable() { // 一次处理一批
                 @Override
                 public void run() {
                     for (BatchedImageRequest bir : mBatchedResponses.values()) {

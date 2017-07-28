@@ -27,11 +27,13 @@ import java.util.Locale;
  * Logging helper class.
  * <p>
  * to see Volley logs call:<br>
+ *     !!
  * {@code <android-sdk>/platform-tools/adb shell setprop log.tag.Volley VERBOSE}
  */
 public class VolleyLog {
     public static String TAG = "Volley";
 
+    // adb shell setprop log.tag.Volley VERBOSE
     public static boolean DEBUG = Log.isLoggable(TAG, Log.VERBOSE);
 
     /**
@@ -65,7 +67,7 @@ public class VolleyLog {
     }
 
     public static void e(Throwable tr, String format, Object... args) {
-        Log.e(TAG, buildMessage(format, args), tr);
+        Log.e(TAG, buildMessage(format, args), tr); // 三个参数
     }
 
     public static void wtf(String format, Object... args) {
@@ -77,16 +79,19 @@ public class VolleyLog {
     }
 
     /**
+     * 获取调用者的信息！！！
      * Formats the caller's provided message and prepends useful info like
      * calling thread ID and method name.
      */
     private static String buildMessage(String format, Object... args) {
+        // Locale.US
         String msg = (args == null) ? format : String.format(Locale.US, format, args);
+        // get calling thread ID and method name!!!
         StackTraceElement[] trace = new Throwable().fillInStackTrace().getStackTrace();
 
         String caller = "<unknown>";
         // Walk up the stack looking for the first caller outside of VolleyLog.
-        // It will be at least two frames up, so start there.
+        // It will be at least two frames up, so start there.!!!
         for (int i = 2; i < trace.length; i++) {
             Class<?> clazz = trace[i].getClass();
             if (!clazz.equals(VolleyLog.class)) {
@@ -103,6 +108,7 @@ public class VolleyLog {
     }
 
     /**
+     * 供request记录调用过程
      * A simple event log with records containing a name, thread ID, and timestamp.
      */
     static class MarkerLog {
@@ -158,7 +164,7 @@ public class VolleyLog {
         }
 
         @Override
-        protected void finalize() throws Throwable {
+        protected void finalize() throws Throwable { // finalize
             // Catch requests that have been collected (and hence end-of-lifed)
             // but had no debugging output printed for them.
             if (!mFinished) {
